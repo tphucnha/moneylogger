@@ -5,6 +5,7 @@ import javax.persistence.*;
 import javax.validation.constraints.*;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.envers.Audited;
 
 /**
  * A Category.
@@ -12,7 +13,8 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 @Entity
 @Table(name = "category")
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
-public class Category implements Serializable {
+@Audited
+public class Category extends AbstractAuditingEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

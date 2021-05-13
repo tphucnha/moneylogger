@@ -6,6 +6,7 @@ import javax.persistence.*;
 import javax.validation.constraints.*;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.envers.Audited;
 
 /**
  * A Transaction.
@@ -13,7 +14,8 @@ import org.hibernate.annotations.CacheConcurrencyStrategy;
 @Entity
 @Table(name = "transaction")
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
-public class Transaction implements Serializable {
+@Audited
+public class Transaction extends AbstractAuditingEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

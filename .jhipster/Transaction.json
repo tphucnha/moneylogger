@@ -1,0 +1,32 @@
+{
+  "microserviceName": "moneylogger",
+  "clientRootFolder": "moneylogger",
+  "databaseType": "sql",
+  "fields": [
+    {
+      "fieldName": "amount",
+      "fieldType": "BigDecimal",
+      "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "details",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "relationships": [
+    {
+      "relationshipName": "category",
+      "otherEntityName": "category",
+      "relationshipType": "many-to-one",
+      "otherEntityField": "id"
+    }
+  ],
+  "service": "serviceImpl",
+  "dto": "mapstruct",
+  "jpaMetamodelFiltering": true,
+  "readOnly": false,
+  "pagination": "pagination",
+  "name": "Transaction",
+  "changelogDate": "20210513063721"
+}

@@ -1,0 +1,20 @@
+{
+  "microserviceName": "moneylogger",
+  "clientRootFolder": "moneylogger",
+  "databaseType": "sql",
+  "fields": [
+    {
+      "fieldName": "name",
+      "fieldType": "String",
+      "fieldValidateRules": ["required"]
+    }
+  ],
+  "relationships": [],
+  "service": "serviceImpl",
+  "dto": "mapstruct",
+  "jpaMetamodelFiltering": true,
+  "readOnly": false,
+  "pagination": "pagination",
+  "name": "Category",
+  "changelogDate": "20210513063559"
+}

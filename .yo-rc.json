@@ -38,6 +38,10 @@
     "jwtSecretKey": "YTUxYjE0YTQzNjQ4MTgxMDU4MDY2ZDFiMzZkMTE3ZTcwNmUyNzcwZGJmOGQ5NmIzNThjNGNkYWYxMzNhOWM1MzBkODNjMGVmYWU2MjgzYTEyNWQzOWQ3MWVhZDY0OTllMWMwYmQ5YWVkN2M4M2NjYjdmZjlkOGMxNTI2MGNhM2M=",
     "languages": ["en", "fr"],
     "lastLiquibaseTimestamp": 1620887841000,
-    "entities": ["Category", "Transaction"]
+    "entities": ["Category", "Transaction"],
+    "appFolder": "moneylogger",
+    "herokuAppName": "tpnlogger",
+    "herokuDeployType": "git",
+    "herokuJavaVersion": "11"
   }
 }

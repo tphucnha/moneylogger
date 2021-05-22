@@ -150,7 +150,7 @@ spring:
       hibernate.cache.hazelcast.instance_name: moneylogger
       hibernate.cache.hazelcast.use_lite_member: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
       naming:
         physical-strategy: org.springframework.boot.orm.jpa.hibernate.SpringPhysicalNamingStrategy
         implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy

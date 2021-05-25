@@ -1,22 +1,10 @@
 package dev.tphucnha.moneylogger.web.rest;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.repository.CategoryRepository;
-import dev.tphucnha.moneylogger.service.criteria.CategoryCriteria;
 import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +14,18 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for the {@link CategoryResource} REST controller.
@@ -564,17 +564,129 @@ class CategoryResourceIT {
 
     @Test
     @Transactional
-    @WithMockUser(username = "the-owner")
     void userShouldSeeNothingIfTheyDidNotCreateAnyCategory() throws Exception {
         // Initialize the database
         categoryRepository.saveAndFlush(category);
 
         // Get the category
         restCategoryMockMvc
-            .perform(get(ENTITY_API_URL, category.getId()).with(user("not-the-owner")))
+            .perform(get(ENTITY_API_URL).with(user("not-the-owner")))
             .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("not-the-owner"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$", hasSize(0)));
     }
+
+    @Test
+    @Transactional
+    void userShouldSeeOnlyTheirsCategories() throws Exception {
+        int databaseSizeBeforeCreate = categoryRepository.findAll().size();
+
+        // Initialize the database: the-owner's category
+        categoryRepository.saveAndFlush(category);
+
+        // the-others-category
+        CategoryDTO othersCategoryDTO = categoryMapper.toDto(new Category().name("CCCCCCCCC"));
+        restCategoryMockMvc
+            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON)
+                .content(TestUtil.convertObjectToJsonBytes(othersCategoryDTO))
+                .with(user("the-others")))
+            .andExpect(status().isCreated());
+
+        // Validate the Category in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(databaseSizeBeforeCreate + 2);
+
+
+        // Get all the categories
+        restCategoryMockMvc
+            .perform(get(ENTITY_API_URL))
+            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("user"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(category.getId().intValue())))
+            .andExpect(jsonPath("$.[*].name").value(hasItem(category.getName())));
+    }
+
+    @Test
+    @Transactional
+    void categoryShouldNotBeEditingByWhoIsNotTheOwner() throws Exception {
+        // Initialize the database
+        categoryRepository.saveAndFlush(category);
+
+        int databaseSizeBeforeUpdate = categoryRepository.findAll().size();
+
+        // Update the category
+        Category updatedCategory = categoryRepository.findById(category.getId()).get();
+        // Disconnect from session so that the updates on updatedCategory are not directly saved in db
+        em.detach(updatedCategory);
+        updatedCategory.name(UPDATED_NAME);
+        CategoryDTO categoryDTO = categoryMapper.toDto(updatedCategory);
+
+        restCategoryMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, category.getId())
+                    .with(user("not-the-owner"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(categoryDTO))
+            )
+            .andExpect(status().isForbidden());
+
+        // Validate the Category in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(databaseSizeBeforeUpdate);
+        Category testCategory = categoryList.get(categoryList.size() - 1);
+        assertThat(testCategory.getName()).isEqualTo(DEFAULT_NAME);
+    }
+
+    @Test
+    @Transactional
+    void categoryShouldNotBeDeletingByWhoIsNotTheOwner() throws Exception {
+        // Initialize the database
+        categoryRepository.saveAndFlush(category);
+
+        int databaseSizeBeforeDelete = categoryRepository.findAll().size();
+
+        // Delete the category
+        restCategoryMockMvc
+            .perform(delete(ENTITY_API_URL_ID, category.getId())
+                .accept(MediaType.APPLICATION_JSON)
+                .with(user("not-the-owner")))
+            .andExpect(status().isForbidden());
+
+        // Validate the database contains one less item
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @Transactional
+    void patchUpdateIsNotPermitIfUserIsNotTheOwner() throws Exception {
+        // Initialize the database
+        categoryRepository.saveAndFlush(category);
+
+        int databaseSizeBeforeUpdate = categoryRepository.findAll().size();
+
+        // Update the category using partial update
+        Category partialUpdatedCategory = new Category();
+        partialUpdatedCategory.setId(category.getId());
+
+        partialUpdatedCategory.name(UPDATED_NAME);
+
+        restCategoryMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedCategory.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(TestUtil.convertObjectToJsonBytes(partialUpdatedCategory))
+            )
+            .andExpect(status().isForbidden());
+
+        // Validate the Category in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(databaseSizeBeforeUpdate);
+        Category testCategory = categoryList.get(categoryList.size() - 1);
+        assertThat(testCategory.getName()).isEqualTo(DEFAULT_NAME);
+    }
+
 }

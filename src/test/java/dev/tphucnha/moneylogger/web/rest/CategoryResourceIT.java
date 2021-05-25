@@ -2,6 +2,8 @@ package dev.tphucnha.moneylogger.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -21,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -541,5 +544,37 @@ class CategoryResourceIT {
         // Validate the database contains one less item
         List<Category> categoryList = categoryRepository.findAll();
         assertThat(categoryList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "the-owner")
+    void theCategoryShouldNotToBeFoundByWhoIsNotItsOwner() throws Exception {
+        // Initialize the database
+        categoryRepository.saveAndFlush(category);
+
+        // Get the category
+        restCategoryMockMvc
+            .perform(get(ENTITY_API_URL_ID, category.getId()).with(user("not-the-owner")))
+            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$").doesNotExist());
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "the-owner")
+    void userShouldSeeNothingIfTheyDidNotCreateAnyCategory() throws Exception {
+        // Initialize the database
+        categoryRepository.saveAndFlush(category);
+
+        // Get the category
+        restCategoryMockMvc
+            .perform(get(ENTITY_API_URL, category.getId()).with(user("not-the-owner")))
+            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(0)));
     }
 }

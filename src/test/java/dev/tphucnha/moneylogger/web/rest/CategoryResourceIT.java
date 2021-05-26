@@ -11,7 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -556,10 +556,9 @@ class CategoryResourceIT {
         // Get the category
         restCategoryMockMvc
             .perform(get(ENTITY_API_URL_ID, category.getId()).with(user("not-the-owner")))
-            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("not-the-owner"))
+            .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isForbidden())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$").doesNotExist());
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE));
     }
 
     @Test
@@ -571,7 +570,7 @@ class CategoryResourceIT {
         // Get the category
         restCategoryMockMvc
             .perform(get(ENTITY_API_URL).with(user("not-the-owner")))
-            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("not-the-owner"))
+            .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$", hasSize(0)));
@@ -591,6 +590,7 @@ class CategoryResourceIT {
             .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON)
                 .content(TestUtil.convertObjectToJsonBytes(othersCategoryDTO))
                 .with(user("the-others")))
+            .andExpect(authenticated().withUsername("the-others"))
             .andExpect(status().isCreated());
 
         // Validate the Category in the database
@@ -601,7 +601,7 @@ class CategoryResourceIT {
         // Get all the categories
         restCategoryMockMvc
             .perform(get(ENTITY_API_URL))
-            .andExpect(SecurityMockMvcResultMatchers.authenticated().withUsername("user"))
+            .andExpect(authenticated().withUsername("user"))
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
@@ -631,6 +631,8 @@ class CategoryResourceIT {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(TestUtil.convertObjectToJsonBytes(categoryDTO))
             )
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isForbidden());
 
         // Validate the Category in the database
@@ -653,6 +655,8 @@ class CategoryResourceIT {
             .perform(delete(ENTITY_API_URL_ID, category.getId())
                 .accept(MediaType.APPLICATION_JSON)
                 .with(user("not-the-owner")))
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isForbidden());
 
         // Validate the database contains one less item
@@ -662,7 +666,7 @@ class CategoryResourceIT {
 
     @Test
     @Transactional
-    void patchUpdateIsNotPermitIfUserIsNotTheOwner() throws Exception {
+    void patchUpdateIsNotPermittedIfUserIsNotTheOwner() throws Exception {
         // Initialize the database
         categoryRepository.saveAndFlush(category);
 
@@ -677,9 +681,12 @@ class CategoryResourceIT {
         restCategoryMockMvc
             .perform(
                 patch(ENTITY_API_URL_ID, partialUpdatedCategory.getId())
+                    .with(user("not-the-owner"))
                     .contentType("application/merge-patch+json")
                     .content(TestUtil.convertObjectToJsonBytes(partialUpdatedCategory))
             )
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isForbidden());
 
         // Validate the Category in the database

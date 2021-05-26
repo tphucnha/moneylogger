@@ -31,7 +31,7 @@ public interface CategoryService {
      * @param pageable the pagination information.
      * @return the list of entities.
      */
-    Page<CategoryDTO> findAll(Pageable pageable);
+//    Page<CategoryDTO> findAll(Pageable pageable);
 
     /**
      * Get the "id" category.

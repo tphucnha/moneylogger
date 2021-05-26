@@ -3,6 +3,7 @@ package dev.tphucnha.moneylogger.service;
 import dev.tphucnha.moneylogger.domain.*; // for static metamodels
 import dev.tphucnha.moneylogger.domain.Transaction;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
+import dev.tphucnha.moneylogger.security.SecurityUtils;
 import dev.tphucnha.moneylogger.service.criteria.TransactionCriteria;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
@@ -81,7 +82,10 @@ public class TransactionQueryService extends QueryService<Transaction> {
      * @return the matching {@link Specification} of the entity.
      */
     protected Specification<Transaction> createSpecification(TransactionCriteria criteria) {
-        Specification<Transaction> specification = Specification.where(null);
+        Specification<Transaction> specification = Specification.where(
+            (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get(Transaction_.createdBy), SecurityUtils.getCurrentUserLogin().orElse(""))
+        );
         if (criteria != null) {
             if (criteria.getId() != null) {
                 specification = specification.and(buildRangeSpecification(criteria.getId(), Transaction_.id));

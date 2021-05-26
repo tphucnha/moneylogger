@@ -1,10 +1,22 @@
 package dev.tphucnha.moneylogger.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,19 +25,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.persistence.EntityManager;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for the {@link CategoryResource} REST controller.
@@ -41,8 +40,8 @@ class CategoryResourceIT {
     private static final String ENTITY_API_URL = "/api/categories";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
-    private static Random random = new Random();
-    private static AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
+    private static final Random random = new Random();
+    private static final AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -65,8 +64,7 @@ class CategoryResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Category createEntity(EntityManager em) {
-        Category category = new Category().name(DEFAULT_NAME);
-        return category;
+        return new Category().name(DEFAULT_NAME);
     }
 
     /**
@@ -76,8 +74,7 @@ class CategoryResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Category createUpdatedEntity(EntityManager em) {
-        Category category = new Category().name(UPDATED_NAME);
-        return category;
+        return new Category().name(UPDATED_NAME);
     }
 
     @BeforeEach
@@ -319,7 +316,7 @@ class CategoryResourceIT {
         int databaseSizeBeforeUpdate = categoryRepository.findAll().size();
 
         // Update the category
-        Category updatedCategory = categoryRepository.findById(category.getId()).get();
+        Category updatedCategory = categoryRepository.findById(category.getId()).orElseThrow();
         // Disconnect from session so that the updates on updatedCategory are not directly saved in db
         em.detach(updatedCategory);
         updatedCategory.name(UPDATED_NAME);
@@ -587,9 +584,12 @@ class CategoryResourceIT {
         // the-others-category
         CategoryDTO othersCategoryDTO = categoryMapper.toDto(new Category().name("CCCCCCCCC"));
         restCategoryMockMvc
-            .perform(post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON)
-                .content(TestUtil.convertObjectToJsonBytes(othersCategoryDTO))
-                .with(user("the-others")))
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(othersCategoryDTO))
+                    .with(user("the-others"))
+            )
             .andExpect(authenticated().withUsername("the-others"))
             .andExpect(status().isCreated());
 
@@ -597,8 +597,7 @@ class CategoryResourceIT {
         List<Category> categoryList = categoryRepository.findAll();
         assertThat(categoryList).hasSize(databaseSizeBeforeCreate + 2);
 
-
-        // Get all the categories
+        // Get all the categories of `user`
         restCategoryMockMvc
             .perform(get(ENTITY_API_URL))
             .andExpect(authenticated().withUsername("user"))
@@ -606,7 +605,16 @@ class CategoryResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
             .andExpect(jsonPath("$.[*].id").value(hasItem(category.getId().intValue())))
-            .andExpect(jsonPath("$.[*].name").value(hasItem(category.getName())));
+            .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME)));
+
+        // Get all the categories of `the-others`
+        restCategoryMockMvc
+            .perform(get(ENTITY_API_URL).with(user("the-others")))
+            .andExpect(authenticated().withUsername("the-others"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
+            .andExpect(jsonPath("$.[*].name").value(hasItem(othersCategoryDTO.getName())));
     }
 
     @Test
@@ -652,9 +660,7 @@ class CategoryResourceIT {
 
         // Delete the category
         restCategoryMockMvc
-            .perform(delete(ENTITY_API_URL_ID, category.getId())
-                .accept(MediaType.APPLICATION_JSON)
-                .with(user("not-the-owner")))
+            .perform(delete(ENTITY_API_URL_ID, category.getId()).accept(MediaType.APPLICATION_JSON).with(user("not-the-owner")))
             .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
             .andExpect(authenticated().withUsername("not-the-owner"))
             .andExpect(status().isForbidden());
@@ -695,5 +701,4 @@ class CategoryResourceIT {
         Category testCategory = categoryList.get(categoryList.size() - 1);
         assertThat(testCategory.getName()).isEqualTo(DEFAULT_NAME);
     }
-
 }

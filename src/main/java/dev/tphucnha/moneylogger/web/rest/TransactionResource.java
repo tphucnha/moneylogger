@@ -16,10 +16,10 @@ import javax.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -70,11 +70,15 @@ public class TransactionResource {
         if (transactionDTO.getId() != null) {
             throw new BadRequestAlertException("A new transaction cannot already have an ID", ENTITY_NAME, "idexists");
         }
-        TransactionDTO result = transactionService.save(transactionDTO);
-        return ResponseEntity
-            .created(new URI("/api/transactions/" + result.getId()))
-            .headers(HeaderUtil.createEntityCreationAlert(applicationName, false, ENTITY_NAME, result.getId().toString()))
-            .body(result);
+        try {
+            TransactionDTO result = transactionService.save(transactionDTO);
+            return ResponseEntity
+                .created(new URI("/api/transactions/" + result.getId()))
+                .headers(HeaderUtil.createEntityCreationAlert(applicationName, false, ENTITY_NAME, result.getId().toString()))
+                .body(result);
+        } catch (InvalidDataAccessResourceUsageException e) {
+            throw new BadRequestAlertException("Invalid data access", ENTITY_NAME, e.getMessage());
+        }
     }
 
     /**
@@ -104,11 +108,15 @@ public class TransactionResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        TransactionDTO result = transactionService.save(transactionDTO);
-        return ResponseEntity
-            .ok()
-            .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, transactionDTO.getId().toString()))
-            .body(result);
+        try {
+            TransactionDTO result = transactionService.save(transactionDTO);
+            return ResponseEntity
+                .ok()
+                .headers(HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, transactionDTO.getId().toString()))
+                .body(result);
+        } catch (InvalidDataAccessResourceUsageException e) {
+            throw new BadRequestAlertException("Invalid data access", ENTITY_NAME, e.getMessage());
+        }
     }
 
     /**
@@ -139,12 +147,16 @@ public class TransactionResource {
             throw new BadRequestAlertException("Entity not found", ENTITY_NAME, "idnotfound");
         }
 
-        Optional<TransactionDTO> result = transactionService.partialUpdate(transactionDTO);
+        try {
+            Optional<TransactionDTO> result = transactionService.partialUpdate(transactionDTO);
 
-        return ResponseUtil.wrapOrNotFound(
-            result,
-            HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, transactionDTO.getId().toString())
-        );
+            return ResponseUtil.wrapOrNotFound(
+                result,
+                HeaderUtil.createEntityUpdateAlert(applicationName, false, ENTITY_NAME, transactionDTO.getId().toString())
+            );
+        } catch (InvalidDataAccessResourceUsageException e) {
+            throw new BadRequestAlertException("Invalid data access", ENTITY_NAME, e.getMessage());
+        }
     }
 
     /**

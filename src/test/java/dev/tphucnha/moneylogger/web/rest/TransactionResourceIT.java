@@ -3,15 +3,20 @@ package dev.tphucnha.moneylogger.web.rest;
 import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.domain.Transaction;
+import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
-import dev.tphucnha.moneylogger.service.criteria.TransactionCriteria;
+import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
+import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,15 +49,23 @@ class TransactionResourceIT {
 
     private static final String ENTITY_API_URL = "/api/transactions";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String CATEGORY_ENTITY_API_URL = "/api/categories";
+    private static final String CATEGORY_ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
 
-    private static Random random = new Random();
-    private static AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
+    private static final Random random = new Random();
+    private static final AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
 
     @Autowired
     private TransactionRepository transactionRepository;
 
     @Autowired
+    private CategoryRepository categoryRepository;
+
+    @Autowired
     private TransactionMapper transactionMapper;
+
+    @Autowired
+    private CategoryMapper categoryMapper;
 
     @Autowired
     private EntityManager em;
@@ -69,8 +82,7 @@ class TransactionResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Transaction createEntity(EntityManager em) {
-        Transaction transaction = new Transaction().amount(DEFAULT_AMOUNT).details(DEFAULT_DETAILS);
-        return transaction;
+        return new Transaction().amount(DEFAULT_AMOUNT).details(DEFAULT_DETAILS);
     }
 
     /**
@@ -80,8 +92,7 @@ class TransactionResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Transaction createUpdatedEntity(EntityManager em) {
-        Transaction transaction = new Transaction().amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
-        return transaction;
+        return new Transaction().amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
     }
 
     @BeforeEach
@@ -706,5 +717,314 @@ class TransactionResourceIT {
         // Validate the database contains one less item
         List<Transaction> transactionList = transactionRepository.findAll();
         assertThat(transactionList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    @WithMockUser(username = "the-owner")
+    void theTransactionShouldNotToBeFoundByWhoIsNotItsOwner() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get the transaction
+        restTransactionMockMvc
+            .perform(get(ENTITY_API_URL_ID, transaction.getId()).with(user("not-the-owner")))
+            .andExpect(authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isForbidden())
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE));
+    }
+
+    @Test
+    @Transactional
+    void userShouldSeeNothingIfTheyDidNotCreateAnyTransaction() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get the transaction
+        restTransactionMockMvc
+            .perform(get(ENTITY_API_URL).with(user("not-the-owner")))
+            .andExpect(authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    @Transactional
+    void userShouldSeeOnlyTheirsCategories() throws Exception {
+        int databaseSizeBeforeCreate = transactionRepository.findAll().size();
+
+        // Initialize the database: the-owner's transaction
+        transactionRepository.saveAndFlush(transaction);
+
+        // the-others-transaction
+        TransactionDTO othersTransactionDTO = transactionMapper.toDto(new Transaction().details("CCCCCCCCC").amount(BigDecimal.TEN));
+        restTransactionMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(othersTransactionDTO))
+                    .with(user("the-others"))
+            )
+            .andExpect(authenticated().withUsername("the-others"))
+            .andExpect(status().isCreated());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeCreate + 2);
+
+        // Get all the categories of `user`
+        restTransactionMockMvc
+            .perform(get(ENTITY_API_URL))
+            .andExpect(authenticated().withUsername("user"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(transaction.getId().intValue())))
+            .andExpect(jsonPath("$.[*].amount").value(hasItem(sameNumber(DEFAULT_AMOUNT))))
+            .andExpect(jsonPath("$.[*].details").value(hasItem(DEFAULT_DETAILS)));
+
+        // Get all the categories of `the-others`
+        restTransactionMockMvc
+            .perform(get(ENTITY_API_URL).with(user("the-others")))
+            .andExpect(authenticated().withUsername("the-others"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$", hasSize(databaseSizeBeforeCreate + 1)))
+            .andExpect(jsonPath("$.[*].amount").value(hasItem(sameNumber(othersTransactionDTO.getAmount()))))
+            .andExpect(jsonPath("$.[*].details").value(hasItem(othersTransactionDTO.getDetails())));
+    }
+
+    @Test
+    @Transactional
+    void transactionShouldNotBeEditingByWhoIsNotTheOwner() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        // Update the transaction
+        Transaction updatedTransaction = transactionRepository.findById(transaction.getId()).get();
+        // Disconnect from session so that the updates on updatedTransaction are not directly saved in db
+        em.detach(updatedTransaction);
+        updatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        TransactionDTO transactionDTO = transactionMapper.toDto(updatedTransaction);
+
+        restTransactionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, transaction.getId())
+                    .with(user("not-the-owner"))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isForbidden());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+    }
+
+    @Test
+    @Transactional
+    void transactionShouldNotBeDeletingByWhoIsNotTheOwner() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        int databaseSizeBeforeDelete = transactionRepository.findAll().size();
+
+        // Delete the transaction
+        restTransactionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, transaction.getId()).accept(MediaType.APPLICATION_JSON).with(user("not-the-owner")))
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isForbidden());
+
+        // Validate the database contains one less item
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeDelete);
+    }
+
+    @Test
+    @Transactional
+    void patchUpdateIsNotPermittedIfUserIsNotTheOwner() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        // Update the transaction using partial update
+        Transaction partialUpdatedTransaction = new Transaction();
+        partialUpdatedTransaction.setId(transaction.getId());
+
+        partialUpdatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+
+        restTransactionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedTransaction.getId())
+                    .with(user("not-the-owner"))
+                    .contentType("application/merge-patch+json")
+                    .content(TestUtil.convertObjectToJsonBytes(partialUpdatedTransaction))
+            )
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("not-the-owner"))
+            .andExpect(status().isForbidden());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+    }
+
+    @Test
+    @Transactional
+    void userCannotAddTransactionToTheCategoryOfOtherUsers() throws Exception {
+        // Save `user's` category to database
+        Category userCategory = CategoryResourceIT.createEntity(em);
+        categoryRepository.saveAndFlush(userCategory);
+
+        // Disconnect from session so that the updates on updatedCategory are not directly saved in db
+        em.detach(userCategory);
+        CategoryDTO categoryDTO = categoryMapper.toDto(userCategory);
+
+        int databaseSizeBeforeCreate = transactionRepository.findAll().size();
+        // Create the Transaction
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO.setCategory(categoryDTO);
+
+        restTransactionMockMvc
+            .perform(
+                post(ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+                    .with(user("the-other-user"))
+            )
+            .andExpect(authenticated().withUsername("the-other-user"))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    void userCannotUpdateTransactionToTheCategoryOfOtherUsers() throws Exception {
+        // Create the Category
+        CategoryDTO categoryDTO = categoryMapper.toDto(CategoryResourceIT.createEntity(em));
+        restTransactionMockMvc
+            .perform(
+                post(CATEGORY_ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(categoryDTO))
+                    .with(user("the-other-user"))
+            )
+            .andExpect(status().isCreated())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.name").value(categoryDTO.getName()));
+
+        // Validate the Category in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        Category theOtherUserCategory = categoryList.get(categoryList.size() - 1);
+        assertThat(theOtherUserCategory.getName()).isEqualTo(categoryDTO.getName());
+        assertThat(theOtherUserCategory.getCreatedBy()).isEqualTo("the-other-user");
+        em.detach(theOtherUserCategory);
+        CategoryDTO theOtherUserCategoryDto = categoryMapper.toDto(theOtherUserCategory);
+
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+        // Validate category before update
+        assertThat(transaction.getCategory()).isNull();
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        // Update the transaction
+        Transaction updatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
+        // Disconnect from session so that the updates on updatedTransaction are not directly saved in db
+        em.detach(updatedTransaction);
+        updatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        TransactionDTO transactionDTO = transactionMapper.toDto(updatedTransaction);
+        transactionDTO.setCategory(theOtherUserCategoryDto);
+
+        restTransactionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, transactionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(authenticated().withUsername("user"))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+        assertThat(transaction.getCategory()).isNull();
+    }
+
+    @Test
+    @Transactional
+    void patchUpdateIsNotPermittedIfUserDoesNotOwnTheCategory() throws Exception {
+        // Create the Category
+        CategoryDTO categoryDTO = categoryMapper.toDto(CategoryResourceIT.createEntity(em));
+        restTransactionMockMvc
+            .perform(
+                post(CATEGORY_ENTITY_API_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(categoryDTO))
+                    .with(user("the-other-user"))
+            )
+            .andExpect(status().isCreated())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.name").value(categoryDTO.getName()));
+
+        // Validate the Category in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        Category theOtherUserCategory = categoryList.get(categoryList.size() - 1);
+        assertThat(theOtherUserCategory.getName()).isEqualTo(categoryDTO.getName());
+        assertThat(theOtherUserCategory.getCreatedBy()).isEqualTo("the-other-user");
+        em.detach(theOtherUserCategory);
+        CategoryDTO theOtherUserCategoryDto = categoryMapper.toDto(theOtherUserCategory);
+
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+        // Validate category before update
+        assertThat(transaction.getCategory()).isNull();
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        // Update the transaction
+        Transaction partialUpdatedTransaction = transactionRepository.findById(transaction.getId()).orElseThrow();
+        // Disconnect from session so that the updates on updatedTransaction are not directly saved in db
+        em.detach(partialUpdatedTransaction);
+        partialUpdatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        TransactionDTO transactionDTO = transactionMapper.toDto(partialUpdatedTransaction);
+        transactionDTO.setCategory(theOtherUserCategoryDto);
+
+        restTransactionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedTransaction.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(content().contentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE))
+            .andExpect(authenticated().withUsername("user"))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+        assertThat(transaction.getCategory()).isNull();
     }
 }

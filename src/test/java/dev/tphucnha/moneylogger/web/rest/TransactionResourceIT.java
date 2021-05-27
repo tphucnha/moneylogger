@@ -1027,4 +1027,16 @@ class TransactionResourceIT {
         assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
         assertThat(transaction.getCategory()).isNull();
     }
+
+    @Test
+    @Transactional
+    void updateTransactionWithCreatingNewCategory() {
+        //TODO
+    }
+
+    @Test
+    @Transactional
+    void updateTransactionByChangingItsCategory() {
+        //TODO
+    }
 }

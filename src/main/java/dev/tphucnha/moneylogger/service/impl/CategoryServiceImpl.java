@@ -7,9 +7,9 @@ import dev.tphucnha.moneylogger.service.CategoryService;
 import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import java.util.Optional;
-import javax.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,12 +36,7 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryDTO save(CategoryDTO categoryDTO) {
         log.debug("Request to save Category : {}", categoryDTO);
         Category category = categoryMapper.toEntity(categoryDTO);
-        if (category.getId() != null) {
-            Category target = categoryRepository.findById(categoryDTO.getId()).orElseThrow(EntityNotFoundException::new);
-            if (!target.getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException(
-                "Access denied"
-            ); else return categoryMapper.toDto(categoryRepository.save(category));
-        }
+        validateDto(categoryDTO);
         category = categoryRepository.save(category);
         return categoryMapper.toDto(category);
     }
@@ -49,12 +44,9 @@ public class CategoryServiceImpl implements CategoryService {
     @Override
     public Optional<CategoryDTO> partialUpdate(CategoryDTO categoryDTO) {
         log.debug("Request to partially update Category : {}", categoryDTO);
-        Optional<Category> target = categoryRepository.findById(categoryDTO.getId());
-        if (
-            !target.orElseThrow(EntityNotFoundException::new).getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
-        ) throw new AccessDeniedException("Access denied");
-
-        return target
+        validateDto(categoryDTO);
+        return categoryRepository
+            .findById(categoryDTO.getId())
             .map(
                 existingCategory -> {
                     categoryMapper.partialUpdate(existingCategory, categoryDTO);
@@ -63,6 +55,17 @@ public class CategoryServiceImpl implements CategoryService {
             )
             .map(categoryRepository::save)
             .map(categoryMapper::toDto);
+    }
+
+    private void validateDto(CategoryDTO categoryDTO) {
+        if (categoryDTO.getId() != null) {
+            Optional<Category> target = categoryRepository.findById(categoryDTO.getId());
+            if (target.isEmpty()) throw new InvalidDataAccessResourceUsageException("Invalid category");
+
+            if (!target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException(
+                "Access denied"
+            );
+        }
     }
 
     //    @Override
@@ -76,20 +79,23 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional(readOnly = true)
     public Optional<CategoryDTO> findOne(Long id) {
         log.debug("Request to get Category : {}", id);
-        Optional<Category> target = categoryRepository.findById(id);
-        if (
-            target.isPresent() && !target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
-        ) throw new AccessDeniedException("Access denied");
+        Optional<Category> category = categoryRepository.findById(id);
+        validateEntity(category);
 
-        return target.map(categoryMapper::toDto);
+        return category.map(categoryMapper::toDto);
     }
 
     @Override
     public void delete(Long id) {
         log.debug("Request to delete Category : {}", id);
-        Category target = categoryRepository.findById(id).orElseThrow(EntityNotFoundException::new);
-        if (!target.getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException("Access denied");
+        Optional<Category> category = categoryRepository.findById(id);
+        validateEntity(category);
+        categoryRepository.deleteById(id);
+    }
 
-        categoryRepository.delete(target);
+    private void validateEntity(Optional<Category> category) {
+        if (
+            category.isPresent() && !category.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
+        ) throw new AccessDeniedException("Access denied");
     }
 }

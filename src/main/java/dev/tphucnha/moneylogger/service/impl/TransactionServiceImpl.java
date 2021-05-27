@@ -9,7 +9,6 @@ import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
 import java.util.Optional;
-import javax.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
@@ -45,17 +44,8 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public TransactionDTO save(TransactionDTO transactionDTO) {
         log.debug("Request to save Transaction : {}", transactionDTO);
+        validateDto(transactionDTO);
         Transaction transaction = transactionMapper.toEntity(transactionDTO);
-
-        // Validate category's owner if exists.
-        validateCategoryCreator(transactionDTO);
-
-        if (transaction.getId() != null) {
-            Transaction target = transactionRepository.findById(transactionDTO.getId()).orElseThrow(EntityNotFoundException::new);
-            if (!target.getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException(
-                "Access denied"
-            ); else return transactionMapper.toDto(transactionRepository.save(transaction));
-        }
         transaction = transactionRepository.save(transaction);
         return transactionMapper.toDto(transaction);
     }
@@ -63,16 +53,9 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     public Optional<TransactionDTO> partialUpdate(TransactionDTO transactionDTO) {
         log.debug("Request to partially update Transaction : {}", transactionDTO);
-
-        // Validate category's owner if exists.
-        validateCategoryCreator(transactionDTO);
-
-        Optional<Transaction> target = transactionRepository.findById(transactionDTO.getId());
-        if (
-            !target.orElseThrow(EntityNotFoundException::new).getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
-        ) throw new AccessDeniedException("Access denied");
-
-        return target
+        validateDto(transactionDTO);
+        return transactionRepository
+            .findById(transactionDTO.getId())
             .map(
                 existingTransaction -> {
                     transactionMapper.partialUpdate(existingTransaction, transactionDTO);
@@ -83,12 +66,25 @@ public class TransactionServiceImpl implements TransactionService {
             .map(transactionMapper::toDto);
     }
 
-    private void validateCategoryCreator(TransactionDTO transactionDTO) {
+    private void validateDto(TransactionDTO transactionDTO) {
+        // Validate category's owner
         if (transactionDTO.getCategory() != null && transactionDTO.getCategory().getId() != null) {
             Optional<Category> target = categoryRepository.findById(transactionDTO.getCategory().getId());
+            if (target.isEmpty()) throw new InvalidDataAccessResourceUsageException("Invalid category");
+
             if (
-                !target.orElseThrow(EntityNotFoundException::new).getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
+                !target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
             ) throw new InvalidDataAccessResourceUsageException("Invalid category");
+        }
+
+        // Validate transaction's owner
+        if (transactionDTO.getId() != null) {
+            Optional<Transaction> target = transactionRepository.findById(transactionDTO.getId());
+            if (target.isEmpty()) throw new InvalidDataAccessResourceUsageException("Invalid transaction");
+
+            if (!target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException(
+                "Access denied"
+            );
         }
     }
 
@@ -103,20 +99,22 @@ public class TransactionServiceImpl implements TransactionService {
     @Transactional(readOnly = true)
     public Optional<TransactionDTO> findOne(Long id) {
         log.debug("Request to get Transaction : {}", id);
-        Optional<Transaction> target = transactionRepository.findById(id);
-        if (
-            target.isPresent() && !target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
-        ) throw new AccessDeniedException("Access denied");
-
-        return transactionRepository.findById(id).map(transactionMapper::toDto);
+        Optional<Transaction> transaction = transactionRepository.findById(id);
+        validateEntity(transaction);
+        return transaction.map(transactionMapper::toDto);
     }
 
     @Override
     public void delete(Long id) {
         log.debug("Request to delete Transaction : {}", id);
-        Transaction target = transactionRepository.findById(id).orElseThrow(EntityNotFoundException::new);
-        if (!target.getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException("Access denied");
-
+        Optional<Transaction> transaction = transactionRepository.findById(id);
+        validateEntity(transaction);
         transactionRepository.deleteById(id);
+    }
+
+    private void validateEntity(Optional<Transaction> transaction) {
+        if (
+            transaction.isPresent() && !transaction.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
+        ) throw new AccessDeniedException("Access denied");
     }
 }

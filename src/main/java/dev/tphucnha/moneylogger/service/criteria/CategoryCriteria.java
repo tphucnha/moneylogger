@@ -28,11 +28,14 @@ public class CategoryCriteria implements Serializable, Criteria {
 
     private StringFilter name;
 
+    private LongFilter transactionId;
+
     public CategoryCriteria() {}
 
     public CategoryCriteria(CategoryCriteria other) {
         this.id = other.id == null ? null : other.id.copy();
         this.name = other.name == null ? null : other.name.copy();
+        this.transactionId = other.transactionId == null ? null : other.transactionId.copy();
     }
 
     @Override
@@ -70,6 +73,21 @@ public class CategoryCriteria implements Serializable, Criteria {
         this.name = name;
     }
 
+    public LongFilter getTransactionId() {
+        return transactionId;
+    }
+
+    public LongFilter transactionId() {
+        if (transactionId == null) {
+            transactionId = new LongFilter();
+        }
+        return transactionId;
+    }
+
+    public void setTransactionId(LongFilter transactionId) {
+        this.transactionId = transactionId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -79,12 +97,12 @@ public class CategoryCriteria implements Serializable, Criteria {
             return false;
         }
         final CategoryCriteria that = (CategoryCriteria) o;
-        return Objects.equals(id, that.id) && Objects.equals(name, that.name);
+        return Objects.equals(id, that.id) && Objects.equals(name, that.name) && Objects.equals(transactionId, that.transactionId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name);
+        return Objects.hash(id, name, transactionId);
     }
 
     // prettier-ignore
@@ -93,6 +111,7 @@ public class CategoryCriteria implements Serializable, Criteria {
         return "CategoryCriteria{" +
             (id != null ? "id=" + id + ", " : "") +
             (name != null ? "name=" + name + ", " : "") +
+            (transactionId != null ? "transactionId=" + transactionId + ", " : "") +
             "}";
     }
 }

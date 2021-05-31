@@ -2,6 +2,7 @@ package dev.tphucnha.moneylogger.service;
 
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.domain.Category_;
+import dev.tphucnha.moneylogger.domain.Transaction_;
 import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.security.SecurityUtils;
 import dev.tphucnha.moneylogger.service.criteria.CategoryCriteria;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tech.jhipster.service.QueryService;
 
+import javax.persistence.criteria.JoinType;
 import java.util.List;
 
 /**
@@ -94,6 +96,15 @@ public class CategoryQueryService extends QueryService<Category> {
             }
             if (criteria.getName() != null) {
                 specification = specification.and(buildStringSpecification(criteria.getName(), Category_.name));
+            }
+            if (criteria.getTransactionId() != null) {
+                specification =
+                    specification.and(
+                        buildSpecification(
+                            criteria.getTransactionId(),
+                            root -> root.join(Category_.transactions, JoinType.LEFT).get(Transaction_.id)
+                        )
+                    );
             }
         }
         return specification;

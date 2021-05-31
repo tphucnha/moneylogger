@@ -1,11 +1,15 @@
 package dev.tphucnha.moneylogger.domain;
 
-import java.io.Serializable;
-import javax.persistence.*;
-import javax.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.envers.Audited;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * A Category.
@@ -26,6 +30,11 @@ public class Category extends AbstractAuditingEntity implements Serializable {
     @NotNull
     @Column(name = "name", nullable = false)
     private String name;
+
+    @OneToMany(mappedBy = "category")
+    @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
+    @JsonIgnoreProperties(value = { "category" }, allowSetters = true)
+    private Set<Transaction> transactions = new HashSet<>();
 
     // jhipster-needle-entity-add-field - JHipster will add fields here
     public Long getId() {
@@ -52,6 +61,37 @@ public class Category extends AbstractAuditingEntity implements Serializable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public Set<Transaction> getTransactions() {
+        return this.transactions;
+    }
+
+    public Category transactions(Set<Transaction> transactions) {
+        this.setTransactions(transactions);
+        return this;
+    }
+
+    public Category addTransaction(Transaction transaction) {
+        this.transactions.add(transaction);
+        transaction.setCategory(this);
+        return this;
+    }
+
+    public Category removeTransaction(Transaction transaction) {
+        this.transactions.remove(transaction);
+        transaction.setCategory(null);
+        return this;
+    }
+
+    public void setTransactions(Set<Transaction> transactions) {
+        if (this.transactions != null) {
+            this.transactions.forEach(i -> i.setCategory(null));
+        }
+        if (transactions != null) {
+            transactions.forEach(i -> i.setCategory(this));
+        }
+        this.transactions = transactions;
     }
 
     // jhipster-needle-entity-add-getters-setters - JHipster will add getters and setters here

@@ -1,12 +1,14 @@
 package dev.tphucnha.moneylogger.domain;
 
-import java.io.Serializable;
-import java.math.BigDecimal;
-import javax.persistence.*;
-import javax.validation.constraints.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.envers.Audited;
+
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import java.io.Serializable;
+import java.math.BigDecimal;
 
 /**
  * A Transaction.
@@ -33,6 +35,7 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     private String details;
 
     @ManyToOne(cascade = CascadeType.PERSIST)
+    @JsonIgnoreProperties(value = { "transactions" }, allowSetters = true)
     private Category category;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

@@ -1,15 +1,14 @@
 package dev.tphucnha.moneylogger.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.hibernate.annotations.Cache;
-import org.hibernate.annotations.CacheConcurrencyStrategy;
-import org.hibernate.envers.Audited;
-
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.envers.Audited;
 
 /**
  * A Category.
@@ -117,8 +116,13 @@ public class Category extends AbstractAuditingEntity implements Serializable {
     @Override
     public String toString() {
         return "Category{" +
-            "id=" + getId() +
-            ", name='" + getName() + "'" +
-            "}";
+                "id=" + getId() +
+                ", name='" + getName() + "'" +
+                "}";
+    }
+
+    @PreRemove
+    public void preRemove() {
+        this.transactions.forEach(i -> i.setCategory(null));
     }
 }

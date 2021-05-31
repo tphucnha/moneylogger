@@ -18,13 +18,11 @@ import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
-
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.persistence.EntityManager;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +50,7 @@ class TransactionResourceIT {
     private static final String ENTITY_API_URL = "/api/transactions";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
     private static final String CATEGORY_ENTITY_API_URL = "/api/categories";
-    private static final String CATEGORY_ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
+    private static final String CATEGORY_ENTITY_API_URL_ID = CATEGORY_ENTITY_API_URL + "/{id}";
 
     private static final Random random = new Random();
     private static final AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
@@ -1071,11 +1069,12 @@ class TransactionResourceIT {
         transaction.setCategory(category);
         transactionRepository.saveAndFlush(transaction);
         em.detach(transaction);
+        em.detach(category);
 
-        List<Transaction> transactionList = transactionRepository.findAll();
-        assertThat(transactionList.size()).isEqualTo(transactionDbSizeBeforeCreate + 1);
         List<Category> categoryList = categoryRepository.findAll();
+        List<Transaction> transactionList = transactionRepository.findAll();
         assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
+        assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 1);
 
         // Delete the transaction
         restTransactionMockMvc
@@ -1084,15 +1083,9 @@ class TransactionResourceIT {
 
         // Validate the database
         transactionList = transactionRepository.findAll();
+        categoryList = categoryRepository.findAll();
         assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate);
         assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
-
-    }
-
-    @Test
-    @Transactional
-    void deteleACategoryWillNotDeleteItsTransaction() throws Exception {
-        //TODO
     }
 
     @Test

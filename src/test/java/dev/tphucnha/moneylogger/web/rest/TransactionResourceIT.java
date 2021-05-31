@@ -18,11 +18,13 @@ import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.persistence.EntityManager;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,7 +79,7 @@ class TransactionResourceIT {
 
     /**
      * Create an entity for this test.
-     *
+     * <p>
      * This is a static method, as tests for other entities might also need it,
      * if they test an entity which requires the current entity.
      */
@@ -87,7 +89,7 @@ class TransactionResourceIT {
 
     /**
      * Create an updated entity for this test.
-     *
+     * <p>
      * This is a static method, as tests for other entities might also need it,
      * if they test an entity which requires the current entity.
      */
@@ -1030,7 +1032,66 @@ class TransactionResourceIT {
 
     @Test
     @Transactional
-    void updateTransactionWithCreatingNewCategory() {
+    void createTransactionWithCreatingNewCategory() throws Exception {
+        int categoryDbSizeBeforeCreate = categoryRepository.findAll().size();
+        int transactionDbSizeBeforeCreate = transactionRepository.findAll().size();
+
+        CategoryDTO categoryDTO = categoryMapper.toDto(CategoryResourceIT.createEntity(em));
+
+        // Create the Transaction
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO.setCategory(categoryDTO);
+        restTransactionMockMvc
+            .perform(
+                post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isCreated());
+
+        // Validate the Transaction in the database
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(transactionDbSizeBeforeCreate + 1);
+        Category testCategory = categoryList.get(categoryList.size() - 1);
+        assertThat(testCategory.getName()).isEqualTo(categoryDTO.getName());
+
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 1);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+    }
+
+    @Test
+    @Transactional
+    void deleteCategorizedTransactionWillNotDeleteTheCategory() throws Exception {
+        int categoryDbSizeBeforeCreate = categoryRepository.findAll().size();
+        int transactionDbSizeBeforeCreate = transactionRepository.findAll().size();
+
+        // Create the Transaction
+        Category category = CategoryResourceIT.createEntity(em);
+        transaction.setCategory(category);
+        transactionRepository.saveAndFlush(transaction);
+        em.detach(transaction);
+
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList.size()).isEqualTo(transactionDbSizeBeforeCreate + 1);
+        List<Category> categoryList = categoryRepository.findAll();
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
+
+        // Delete the transaction
+        restTransactionMockMvc
+            .perform(delete(ENTITY_API_URL_ID, transaction.getId()).accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isNoContent());
+
+        // Validate the database
+        transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate);
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
+
+    }
+
+    @Test
+    @Transactional
+    void deteleACategoryWillNotDeleteItsTransaction() throws Exception {
         //TODO
     }
 

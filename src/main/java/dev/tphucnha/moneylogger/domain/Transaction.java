@@ -32,7 +32,7 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     @Column(name = "details", nullable = false)
     private String details;
 
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.PERSIST)
     private Category category;
 
     // jhipster-needle-entity-add-field - JHipster will add fields here

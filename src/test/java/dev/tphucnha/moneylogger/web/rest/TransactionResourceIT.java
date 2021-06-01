@@ -1047,7 +1047,7 @@ class TransactionResourceIT {
 
         // Validate the Transaction in the database
         List<Category> categoryList = categoryRepository.findAll();
-        assertThat(categoryList).hasSize(transactionDbSizeBeforeCreate + 1);
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
         Category testCategory = categoryList.get(categoryList.size() - 1);
         assertThat(testCategory.getName()).isEqualTo(categoryDTO.getName());
 

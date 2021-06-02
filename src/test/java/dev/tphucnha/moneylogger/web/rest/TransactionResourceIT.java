@@ -1,17 +1,12 @@
 package dev.tphucnha.moneylogger.web.rest;
 
 import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
-import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import dev.tphucnha.moneylogger.IntegrationTest;
@@ -25,16 +20,11 @@ import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
 import java.math.BigDecimal;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.List;
-import java.util.Random;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

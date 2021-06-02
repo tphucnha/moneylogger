@@ -36,7 +36,7 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
 
     @NotNull
     @Column(name = "date", nullable = false)
-    private Instant date = Instant.now();
+    private Instant date = getCreatedDate();
 
     @ManyToOne
     @JsonIgnoreProperties(value = { "transactions" }, allowSetters = true)

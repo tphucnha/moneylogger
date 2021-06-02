@@ -1,7 +1,8 @@
 package dev.tphucnha.moneylogger.service;
 
-import dev.tphucnha.moneylogger.domain.*; // for static metamodels
+import dev.tphucnha.moneylogger.domain.Category_;
 import dev.tphucnha.moneylogger.domain.Transaction;
+import dev.tphucnha.moneylogger.domain.Transaction_;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
 import dev.tphucnha.moneylogger.security.SecurityUtils;
 import dev.tphucnha.moneylogger.service.criteria.TransactionCriteria;
@@ -95,6 +96,9 @@ public class TransactionQueryService extends QueryService<Transaction> {
             }
             if (criteria.getDetails() != null) {
                 specification = specification.and(buildStringSpecification(criteria.getDetails(), Transaction_.details));
+            }
+            if (criteria.getDate() != null) {
+                specification = specification.and(buildRangeSpecification(criteria.getDate(), Transaction_.date));
             }
             if (criteria.getCategoryId() != null) {
                 specification =

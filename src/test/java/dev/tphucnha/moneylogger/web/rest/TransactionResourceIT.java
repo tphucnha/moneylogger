@@ -1,5 +1,19 @@
 package dev.tphucnha.moneylogger.web.rest;
 
+import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
+import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.domain.Transaction;
@@ -10,6 +24,18 @@ import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
+import java.math.BigDecimal;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.List;
+import java.util.Random;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLong;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,21 +44,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-
-import javax.persistence.EntityManager;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-
-import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for the {@link TransactionResource} REST controller.
@@ -48,6 +59,9 @@ class TransactionResourceIT {
 
     private static final String DEFAULT_DETAILS = "AAAAAAAAAA";
     private static final String UPDATED_DETAILS = "BBBBBBBBBB";
+
+    private static final Instant DEFAULT_DATE = Instant.ofEpochMilli(0L);
+    private static final Instant UPDATED_DATE = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
     private static final String ENTITY_API_URL = "/api/transactions";
     private static final String ENTITY_API_URL_ID = ENTITY_API_URL + "/{id}";
@@ -87,7 +101,7 @@ class TransactionResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Transaction createEntity(EntityManager em) {
-        return new Transaction().amount(DEFAULT_AMOUNT).details(DEFAULT_DETAILS);
+        return new Transaction().amount(DEFAULT_AMOUNT).details(DEFAULT_DETAILS).date(DEFAULT_DATE);
     }
 
     /**
@@ -97,7 +111,7 @@ class TransactionResourceIT {
      * if they test an entity which requires the current entity.
      */
     public static Transaction createUpdatedEntity(EntityManager em) {
-        return new Transaction().amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        return new Transaction().amount(UPDATED_AMOUNT).details(UPDATED_DETAILS).date(UPDATED_DATE);
     }
 
     @BeforeEach
@@ -123,6 +137,7 @@ class TransactionResourceIT {
         Transaction testTransaction = transactionList.get(transactionList.size() - 1);
         assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
         assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+        assertThat(testTransaction.getDate()).isEqualTo(DEFAULT_DATE);
     }
 
     @Test
@@ -188,6 +203,26 @@ class TransactionResourceIT {
 
     @Test
     @Transactional
+    void checkDateIsRequired() throws Exception {
+        int databaseSizeBeforeTest = transactionRepository.findAll().size();
+        // set the field null
+        transaction.setDate(null);
+
+        // Create the Transaction, which fails.
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+
+        restTransactionMockMvc
+            .perform(
+                post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isBadRequest());
+
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeTest);
+    }
+
+    @Test
+    @Transactional
     void getAllTransactions() throws Exception {
         // Initialize the database
         transactionRepository.saveAndFlush(transaction);
@@ -199,7 +234,8 @@ class TransactionResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(transaction.getId().intValue())))
             .andExpect(jsonPath("$.[*].amount").value(hasItem(sameNumber(DEFAULT_AMOUNT))))
-            .andExpect(jsonPath("$.[*].details").value(hasItem(DEFAULT_DETAILS)));
+            .andExpect(jsonPath("$.[*].details").value(hasItem(DEFAULT_DETAILS)))
+            .andExpect(jsonPath("$.[*].date").value(hasItem(DEFAULT_DATE.toString())));
     }
 
     @Test
@@ -215,7 +251,8 @@ class TransactionResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.id").value(transaction.getId().intValue()))
             .andExpect(jsonPath("$.amount").value(sameNumber(DEFAULT_AMOUNT)))
-            .andExpect(jsonPath("$.details").value(DEFAULT_DETAILS));
+            .andExpect(jsonPath("$.details").value(DEFAULT_DETAILS))
+            .andExpect(jsonPath("$.date").value(DEFAULT_DATE.toString()));
     }
 
     @Test
@@ -420,6 +457,58 @@ class TransactionResourceIT {
 
     @Test
     @Transactional
+    void getAllTransactionsByDateIsEqualToSomething() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get all the transactionList where date equals to DEFAULT_DATE
+        defaultTransactionShouldBeFound("date.equals=" + DEFAULT_DATE);
+
+        // Get all the transactionList where date equals to UPDATED_DATE
+        defaultTransactionShouldNotBeFound("date.equals=" + UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionsByDateIsNotEqualToSomething() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get all the transactionList where date not equals to DEFAULT_DATE
+        defaultTransactionShouldNotBeFound("date.notEquals=" + DEFAULT_DATE);
+
+        // Get all the transactionList where date not equals to UPDATED_DATE
+        defaultTransactionShouldBeFound("date.notEquals=" + UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionsByDateIsInShouldWork() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get all the transactionList where date in DEFAULT_DATE or UPDATED_DATE
+        defaultTransactionShouldBeFound("date.in=" + DEFAULT_DATE + "," + UPDATED_DATE);
+
+        // Get all the transactionList where date equals to UPDATED_DATE
+        defaultTransactionShouldNotBeFound("date.in=" + UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    void getAllTransactionsByDateIsNullOrNotNull() throws Exception {
+        // Initialize the database
+        transactionRepository.saveAndFlush(transaction);
+
+        // Get all the transactionList where date is not null
+        defaultTransactionShouldBeFound("date.specified=true");
+
+        // Get all the transactionList where date is null
+        defaultTransactionShouldNotBeFound("date.specified=false");
+    }
+
+    @Test
+    @Transactional
     void getAllTransactionsByCategoryIsEqualToSomething() throws Exception {
         // Initialize the database
         transactionRepository.saveAndFlush(transaction);
@@ -447,7 +536,8 @@ class TransactionResourceIT {
             .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
             .andExpect(jsonPath("$.[*].id").value(hasItem(transaction.getId().intValue())))
             .andExpect(jsonPath("$.[*].amount").value(hasItem(sameNumber(DEFAULT_AMOUNT))))
-            .andExpect(jsonPath("$.[*].details").value(hasItem(DEFAULT_DETAILS)));
+            .andExpect(jsonPath("$.[*].details").value(hasItem(DEFAULT_DETAILS)))
+            .andExpect(jsonPath("$.[*].date").value(hasItem(DEFAULT_DATE.toString())));
 
         // Check, that the count call also returns 1
         restTransactionMockMvc
@@ -495,7 +585,7 @@ class TransactionResourceIT {
         Transaction updatedTransaction = transactionRepository.findById(transaction.getId()).get();
         // Disconnect from session so that the updates on updatedTransaction are not directly saved in db
         em.detach(updatedTransaction);
-        updatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        updatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS).date(UPDATED_DATE);
         TransactionDTO transactionDTO = transactionMapper.toDto(updatedTransaction);
 
         restTransactionMockMvc
@@ -512,6 +602,7 @@ class TransactionResourceIT {
         Transaction testTransaction = transactionList.get(transactionList.size() - 1);
         assertThat(testTransaction.getAmount()).isEqualTo(UPDATED_AMOUNT);
         assertThat(testTransaction.getDetails()).isEqualTo(UPDATED_DETAILS);
+        assertThat(testTransaction.getDate()).isEqualTo(UPDATED_DATE);
     }
 
     @Test
@@ -591,7 +682,7 @@ class TransactionResourceIT {
         Transaction partialUpdatedTransaction = new Transaction();
         partialUpdatedTransaction.setId(transaction.getId());
 
-        partialUpdatedTransaction.details(UPDATED_DETAILS);
+        partialUpdatedTransaction.details(UPDATED_DETAILS).date(UPDATED_DATE);
 
         restTransactionMockMvc
             .perform(
@@ -607,6 +698,7 @@ class TransactionResourceIT {
         Transaction testTransaction = transactionList.get(transactionList.size() - 1);
         assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
         assertThat(testTransaction.getDetails()).isEqualTo(UPDATED_DETAILS);
+        assertThat(testTransaction.getDate()).isEqualTo(UPDATED_DATE);
     }
 
     @Test
@@ -614,6 +706,7 @@ class TransactionResourceIT {
     void fullUpdateTransactionWithPatch() throws Exception {
         // Initialize the database
         transactionRepository.saveAndFlush(transaction);
+        em.detach(transaction);
 
         int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
 
@@ -621,7 +714,7 @@ class TransactionResourceIT {
         Transaction partialUpdatedTransaction = new Transaction();
         partialUpdatedTransaction.setId(transaction.getId());
 
-        partialUpdatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS);
+        partialUpdatedTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS).date(UPDATED_DATE);
 
         restTransactionMockMvc
             .perform(
@@ -637,6 +730,7 @@ class TransactionResourceIT {
         Transaction testTransaction = transactionList.get(transactionList.size() - 1);
         assertThat(testTransaction.getAmount()).isEqualByComparingTo(UPDATED_AMOUNT);
         assertThat(testTransaction.getDetails()).isEqualTo(UPDATED_DETAILS);
+        assertThat(testTransaction.getDate()).isEqualTo(UPDATED_DATE);
     }
 
     @Test

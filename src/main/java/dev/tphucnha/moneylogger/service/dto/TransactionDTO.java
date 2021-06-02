@@ -2,8 +2,9 @@ package dev.tphucnha.moneylogger.service.dto;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
-import javax.validation.constraints.*;
+import javax.validation.constraints.NotNull;
 
 /**
  * A DTO for the {@link dev.tphucnha.moneylogger.domain.Transaction} entity.
@@ -17,6 +18,9 @@ public class TransactionDTO implements Serializable {
 
     @NotNull
     private String details;
+
+    @NotNull
+    private Instant date;
 
     private CategoryDTO category;
 
@@ -42,6 +46,14 @@ public class TransactionDTO implements Serializable {
 
     public void setDetails(String details) {
         this.details = details;
+    }
+
+    public Instant getDate() {
+        return date;
+    }
+
+    public void setDate(Instant date) {
+        this.date = date;
     }
 
     public CategoryDTO getCategory() {
@@ -80,6 +92,7 @@ public class TransactionDTO implements Serializable {
             "id=" + getId() +
             ", amount=" + getAmount() +
             ", details='" + getDetails() + "'" +
+            ", date='" + getDate() + "'" +
             ", category=" + getCategory() +
             "}";
     }

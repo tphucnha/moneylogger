@@ -12,6 +12,11 @@
       "fieldName": "details",
       "fieldType": "String",
       "fieldValidateRules": ["required"]
+    },
+    {
+      "fieldName": "date",
+      "fieldType": "Instant",
+      "fieldValidateRules": ["required"]
     }
   ],
   "relationships": [

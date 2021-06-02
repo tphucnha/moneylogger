@@ -1,14 +1,14 @@
 package dev.tphucnha.moneylogger.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.Instant;
+import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.envers.Audited;
-
-import javax.persistence.*;
-import javax.validation.constraints.NotNull;
-import java.io.Serializable;
-import java.math.BigDecimal;
 
 /**
  * A Transaction.
@@ -33,6 +33,10 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     @NotNull
     @Column(name = "details", nullable = false)
     private String details;
+
+    @NotNull
+    @Column(name = "date", nullable = false)
+    private Instant date = Instant.now();
 
     @ManyToOne
     @JsonIgnoreProperties(value = { "transactions" }, allowSetters = true)
@@ -78,6 +82,19 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
         this.details = details;
     }
 
+    public Instant getDate() {
+        return this.date;
+    }
+
+    public Transaction date(Instant date) {
+        this.date = date;
+        return this;
+    }
+
+    public void setDate(Instant date) {
+        this.date = date;
+    }
+
     public Category getCategory() {
         return this.category;
     }
@@ -114,9 +131,10 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     @Override
     public String toString() {
         return "Transaction{" +
-            "id=" + getId() +
-            ", amount=" + getAmount() +
-            ", details='" + getDetails() + "'" +
-            "}";
+                "id=" + getId() +
+                ", amount=" + getAmount() +
+                ", details='" + getDetails() + "'" +
+                ", date='" + getDate() + "'" +
+                "}";
     }
 }

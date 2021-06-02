@@ -20,11 +20,15 @@
             <column name="details" type="varchar(255)">
                 <constraints nullable="false" />
             </column>
+            <column name="date" type="${datetimeType}">
+                <constraints nullable="false" />
+            </column>
             <column name="category_id" type="bigint">
                 <constraints nullable="true" />
             </column>
             <!-- jhipster-needle-liquibase-add-column - JHipster will add columns here -->
         </createTable>
+        <dropDefaultValue tableName="transaction" columnName="date" columnDataType="${datetimeType}"/>
     </changeSet>
 
     <!-- jhipster-needle-liquibase-add-changeset - JHipster will add changesets here -->
@@ -45,6 +49,7 @@
             <column name="id" type="numeric"/>
             <column name="amount" type="numeric"/>
             <column name="details" type="string"/>
+            <column name="date" type="${datetimeType}"/>
             <!-- jhipster-needle-liquibase-add-loadcolumn - JHipster (and/or extensions) can add load columns here -->
         </loadData>
     </changeSet>

@@ -3,14 +3,7 @@ package dev.tphucnha.moneylogger.service.criteria;
 import java.io.Serializable;
 import java.util.Objects;
 import tech.jhipster.service.Criteria;
-import tech.jhipster.service.filter.BigDecimalFilter;
-import tech.jhipster.service.filter.BooleanFilter;
-import tech.jhipster.service.filter.DoubleFilter;
-import tech.jhipster.service.filter.Filter;
-import tech.jhipster.service.filter.FloatFilter;
-import tech.jhipster.service.filter.IntegerFilter;
-import tech.jhipster.service.filter.LongFilter;
-import tech.jhipster.service.filter.StringFilter;
+import tech.jhipster.service.filter.*;
 
 /**
  * Criteria class for the {@link dev.tphucnha.moneylogger.domain.Transaction} entity. This class is used
@@ -31,6 +24,8 @@ public class TransactionCriteria implements Serializable, Criteria {
 
     private StringFilter details;
 
+    private InstantFilter date;
+
     private LongFilter categoryId;
 
     public TransactionCriteria() {}
@@ -39,6 +34,7 @@ public class TransactionCriteria implements Serializable, Criteria {
         this.id = other.id == null ? null : other.id.copy();
         this.amount = other.amount == null ? null : other.amount.copy();
         this.details = other.details == null ? null : other.details.copy();
+        this.date = other.date == null ? null : other.date.copy();
         this.categoryId = other.categoryId == null ? null : other.categoryId.copy();
     }
 
@@ -92,6 +88,21 @@ public class TransactionCriteria implements Serializable, Criteria {
         this.details = details;
     }
 
+    public InstantFilter getDate() {
+        return date;
+    }
+
+    public InstantFilter date() {
+        if (date == null) {
+            date = new InstantFilter();
+        }
+        return date;
+    }
+
+    public void setDate(InstantFilter date) {
+        this.date = date;
+    }
+
     public LongFilter getCategoryId() {
         return categoryId;
     }
@@ -120,13 +131,14 @@ public class TransactionCriteria implements Serializable, Criteria {
             Objects.equals(id, that.id) &&
             Objects.equals(amount, that.amount) &&
             Objects.equals(details, that.details) &&
+            Objects.equals(date, that.date) &&
             Objects.equals(categoryId, that.categoryId)
         );
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, amount, details, categoryId);
+        return Objects.hash(id, amount, details, date, categoryId);
     }
 
     // prettier-ignore
@@ -136,6 +148,7 @@ public class TransactionCriteria implements Serializable, Criteria {
             (id != null ? "id=" + id + ", " : "") +
             (amount != null ? "amount=" + amount + ", " : "") +
             (details != null ? "details=" + details + ", " : "") +
+            (date != null ? "date=" + date + ", " : "") +
             (categoryId != null ? "categoryId=" + categoryId + ", " : "") +
             "}";
     }

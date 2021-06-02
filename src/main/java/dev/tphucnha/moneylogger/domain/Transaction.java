@@ -34,7 +34,7 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     @Column(name = "details", nullable = false)
     private String details;
 
-    @ManyToOne(cascade = CascadeType.PERSIST)
+    @ManyToOne
     @JsonIgnoreProperties(value = { "transactions" }, allowSetters = true)
     private Category category;
 

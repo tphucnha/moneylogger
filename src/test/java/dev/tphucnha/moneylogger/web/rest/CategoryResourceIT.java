@@ -1,13 +1,5 @@
 package dev.tphucnha.moneylogger.web.rest;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.domain.Transaction;
@@ -16,10 +8,6 @@ import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
 import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +16,19 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for the {@link CategoryResource} REST controller.
@@ -740,6 +741,9 @@ class CategoryResourceIT {
     @Test
     @Transactional
     void deleteACategoryWillNotDeleteItsTransactionButMakeTransactionsToBeUncategorized() throws Exception {
+        // Init category
+        category = categoryRepository.saveAndFlush(category);
+
         int categoryDbSizeBeforeCreate = categoryRepository.findAll().size();
         int transactionDbSizeBeforeCreate = transactionRepository.findAll().size();
         int uncategorizedTransactionsCount = findUncategorizedTransactions().size();
@@ -758,7 +762,7 @@ class CategoryResourceIT {
         List<Category> categoryList = categoryRepository.findAll();
         List<Transaction> transactionList = transactionRepository.findAll();
         List<Transaction> uncategorizedTransactionList = findUncategorizedTransactions();
-        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate);
         assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 2);
         assertThat(uncategorizedTransactionList).hasSize(uncategorizedTransactionsCount);
 
@@ -771,7 +775,7 @@ class CategoryResourceIT {
         transactionList = transactionRepository.findAll();
         categoryList = categoryRepository.findAll();
         uncategorizedTransactionList = findUncategorizedTransactions();
-        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate);
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate - 1);
         assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 2);
         assertThat(uncategorizedTransactionList).hasSize(uncategorizedTransactionsCount + 2);
     }

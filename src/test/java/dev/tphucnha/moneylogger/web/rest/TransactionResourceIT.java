@@ -1,28 +1,15 @@
 package dev.tphucnha.moneylogger.web.rest;
 
-import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 import dev.tphucnha.moneylogger.IntegrationTest;
 import dev.tphucnha.moneylogger.domain.Category;
 import dev.tphucnha.moneylogger.domain.Transaction;
 import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
+import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.dto.CategoryDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicLong;
-import javax.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +18,21 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
  * Integration tests for the {@link TransactionResource} REST controller.
@@ -66,6 +68,9 @@ class TransactionResourceIT {
 
     @Autowired
     private CategoryMapper categoryMapper;
+
+    @Autowired
+    private TransactionService transactionService;
 
     @Autowired
     private EntityManager em;
@@ -1047,7 +1052,7 @@ class TransactionResourceIT {
 
         // Validate the Transaction in the database
         List<Category> categoryList = categoryRepository.findAll();
-        assertThat(categoryList).hasSize(transactionDbSizeBeforeCreate + 1);
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
         Category testCategory = categoryList.get(categoryList.size() - 1);
         assertThat(testCategory.getName()).isEqualTo(categoryDTO.getName());
 
@@ -1067,7 +1072,8 @@ class TransactionResourceIT {
         // Create the Transaction
         Category category = CategoryResourceIT.createEntity(em);
         transaction.setCategory(category);
-        transactionRepository.saveAndFlush(transaction);
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO = transactionService.save(transactionDTO);
         em.detach(transaction);
         em.detach(category);
 
@@ -1078,7 +1084,7 @@ class TransactionResourceIT {
 
         // Delete the transaction
         restTransactionMockMvc
-            .perform(delete(ENTITY_API_URL_ID, transaction.getId()).accept(MediaType.APPLICATION_JSON))
+            .perform(delete(ENTITY_API_URL_ID, transactionDTO.getId()).accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isNoContent());
 
         // Validate the database
@@ -1090,7 +1096,72 @@ class TransactionResourceIT {
 
     @Test
     @Transactional
-    void updateTransactionByChangingItsCategory() {
-        //TODO
+    void createNewCategorizedTransactionWithExistingCategory() throws Exception {
+        int databaseSizeBeforeCreate = transactionRepository.findAll().size();
+        Category category = CategoryResourceIT.createEntity(em);
+        categoryRepository.saveAndFlush(category);
+        em.detach(category);
+
+        // Create the Transaction
+        transaction.setCategory(category);
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        restTransactionMockMvc
+            .perform(
+                post(ENTITY_API_URL).contentType(MediaType.APPLICATION_JSON).content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isCreated());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeCreate + 1);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(DEFAULT_DETAILS);
+        assertThat(testTransaction.getCategory()).isNotNull();
+        assertThat(testTransaction.getCategory().getId()).isEqualTo(category.getId());
+        assertThat(testTransaction.getCategory().getName()).isEqualTo(category.getName());
+    }
+
+    @Test
+    @Transactional
+    void updateTransactionByUpdateItsCategory() throws Exception {
+        int categoryDbSizeBeforeCreate = categoryRepository.findAll().size();
+        int transactionDbSizeBeforeCreate = transactionRepository.findAll().size();
+
+        // Create category and uncategorized transaction
+        Category category = CategoryResourceIT.createEntity(em);
+        categoryRepository.saveAndFlush(category);
+        transactionRepository.saveAndFlush(transaction);
+
+        // Validate transaction before update
+        List<Category> categoryList = categoryRepository.findAll();
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(categoryList).hasSize(categoryDbSizeBeforeCreate + 1);
+        assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 1);
+        Transaction willUpdateTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(willUpdateTransaction.getCategory()).isNull();
+        em.detach(category);
+        em.detach(willUpdateTransaction);
+
+        willUpdateTransaction.amount(UPDATED_AMOUNT).details(UPDATED_DETAILS).category(category);
+        TransactionDTO transactionDTO = transactionMapper.toDto(willUpdateTransaction);
+
+        restTransactionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, transactionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isOk());
+
+        // Validate the Transaction in the database
+        transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(transactionDbSizeBeforeCreate + 1);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualTo(UPDATED_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(UPDATED_DETAILS);
+        assertThat(testTransaction.getCategory()).isNotNull();
+        assertThat(testTransaction.getCategory().getId()).isEqualTo(category.getId());
+        assertThat(testTransaction.getCategory().getName()).isEqualTo(category.getName());
     }
 }

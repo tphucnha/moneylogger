@@ -7,14 +7,16 @@ import dev.tphucnha.moneylogger.repository.TransactionRepository;
 import dev.tphucnha.moneylogger.security.SecurityUtils;
 import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
+import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Optional;
 
 /**
  * Service Implementation for managing {@link Transaction}.
@@ -31,14 +33,17 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionMapper transactionMapper;
 
+    private final CategoryMapper categoryMapper;
+
     public TransactionServiceImpl(
         TransactionRepository transactionRepository,
         CategoryRepository categoryRepository,
-        TransactionMapper transactionMapper
-    ) {
+        TransactionMapper transactionMapper,
+        CategoryMapper categoryMapper) {
         this.transactionRepository = transactionRepository;
         this.categoryRepository = categoryRepository;
         this.transactionMapper = transactionMapper;
+        this.categoryMapper = categoryMapper;
     }
 
     @Override
@@ -46,6 +51,18 @@ public class TransactionServiceImpl implements TransactionService {
         log.debug("Request to save Transaction : {}", transactionDTO);
         validateDto(transactionDTO);
         Transaction transaction = transactionMapper.toEntity(transactionDTO);
+
+        if (transactionDTO.getCategory() != null) {
+            if (transactionDTO.getCategory().getId() != null) {
+                // No need to validate the existing category's owner, the transactionDTO is validated already
+                Category existingCategory = categoryRepository.getOne(transactionDTO.getCategory().getId());
+                transaction.setCategory(existingCategory);
+            } else {
+                Category newCategory = categoryRepository.save(categoryMapper.toEntity(transactionDTO.getCategory()));
+                transaction.setCategory(newCategory);
+            }
+        }
+
         transaction = transactionRepository.save(transaction);
         return transactionMapper.toDto(transaction);
     }
@@ -82,9 +99,8 @@ public class TransactionServiceImpl implements TransactionService {
             Optional<Transaction> target = transactionRepository.findById(transactionDTO.getId());
             if (target.isEmpty()) throw new InvalidDataAccessResourceUsageException("Invalid transaction");
 
-            if (!target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))) throw new AccessDeniedException(
-                "Access denied"
-            );
+            if (!target.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse("")))
+                throw new AccessDeniedException("Access denied");
         }
     }
 
@@ -113,8 +129,8 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     private void validateEntity(Optional<Transaction> transaction) {
-        if (
-            transaction.isPresent() && !transaction.get().getCreatedBy().equals(SecurityUtils.getCurrentUserLogin().orElse(""))
-        ) throw new AccessDeniedException("Access denied");
+        if (transaction.isPresent() && !transaction.get().getCreatedBy()
+            .equals(SecurityUtils.getCurrentUserLogin().orElse("")))
+            throw new AccessDeniedException("Access denied");
     }
 }

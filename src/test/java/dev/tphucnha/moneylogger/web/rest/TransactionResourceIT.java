@@ -1248,4 +1248,72 @@ class TransactionResourceIT {
         assertThat(testTransaction.getCategory().getId()).isEqualTo(category.getId());
         assertThat(testTransaction.getCategory().getName()).isEqualTo(category.getName());
     }
+
+    @Test
+    @Transactional
+    void updateCategorizedTransactionToBeUncategorized() throws Exception {
+        // Create the Transaction
+        Category category = CategoryResourceIT.createEntity(em);
+        transaction.setCategory(category);
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO = transactionService.save(transactionDTO);
+        em.detach(transaction);
+        em.detach(category);
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        transactionDTO.setCategory(null);
+        restTransactionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, transactionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isOk());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getCategory()).isNull();
+    }
+
+    @Test
+    @Transactional
+    void partialUpdateCategorizedTransactionToBeUncategorized() throws Exception {
+        //TODO: Still failed.
+
+        // Initialize the database
+        Category category = CategoryResourceIT.createEntity(em);
+        transaction.setCategory(category);
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO = transactionService.save(transactionDTO);
+        em.detach(transaction);
+        em.detach(category);
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        // Update the transaction using partial update
+        Transaction partialUpdatedTransaction = new Transaction();
+        partialUpdatedTransaction.setId(transactionDTO.getId());
+
+        partialUpdatedTransaction.details(UPDATED_DETAILS).date(UPDATED_DATE).category(null);
+
+        restTransactionMockMvc
+            .perform(
+                patch(ENTITY_API_URL_ID, partialUpdatedTransaction.getId())
+                    .contentType("application/merge-patch+json")
+                    .content(TestUtil.convertObjectToJsonBytes(partialUpdatedTransaction))
+            )
+            .andExpect(status().isOk());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getAmount()).isEqualByComparingTo(DEFAULT_AMOUNT);
+        assertThat(testTransaction.getDetails()).isEqualTo(UPDATED_DETAILS);
+        assertThat(testTransaction.getDate()).isEqualTo(UPDATED_DATE);
+        assertThat(testTransaction.getCategory()).isNull();
+    }
 }

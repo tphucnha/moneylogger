@@ -34,8 +34,7 @@ public class Transaction extends AbstractAuditingEntity implements Serializable 
     @Column(name = "details", nullable = false)
     private String details;
 
-    @NotNull
-    @Column(name = "date", nullable = false)
+    @Column(name = "date")
     private Instant date = getCreatedDate();
 
     @ManyToOne

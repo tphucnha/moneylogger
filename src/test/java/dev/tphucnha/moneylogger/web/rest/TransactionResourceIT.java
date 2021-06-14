@@ -45,7 +45,7 @@ class TransactionResourceIT {
 
     private static final BigDecimal DEFAULT_AMOUNT = new BigDecimal(1);
     private static final BigDecimal UPDATED_AMOUNT = new BigDecimal(2);
-    private static final BigDecimal SMALLER_AMOUNT = new BigDecimal(1 - 1);
+    private static final BigDecimal SMALLER_AMOUNT = new BigDecimal(0);
 
     private static final String DEFAULT_DETAILS = "AAAAAAAAAA";
     private static final String UPDATED_DETAILS = "BBBBBBBBBB";
@@ -59,7 +59,7 @@ class TransactionResourceIT {
     private static final String CATEGORY_ENTITY_API_URL_ID = CATEGORY_ENTITY_API_URL + "/{id}";
 
     private static final Random random = new Random();
-    private static final AtomicLong count = new AtomicLong(random.nextInt() + (2 * Integer.MAX_VALUE));
+    private static final AtomicLong count = new AtomicLong(random.nextInt() + (2L * Integer.MAX_VALUE));
 
     @Autowired
     private TransactionRepository transactionRepository;
@@ -1247,5 +1247,34 @@ class TransactionResourceIT {
         assertThat(testTransaction.getCategory()).isNotNull();
         assertThat(testTransaction.getCategory().getId()).isEqualTo(category.getId());
         assertThat(testTransaction.getCategory().getName()).isEqualTo(category.getName());
+    }
+
+    @Test
+    @Transactional
+    void updateCategorizedTransactionToBeUncategorized() throws Exception {
+        // Create the Transaction
+        Category category = CategoryResourceIT.createEntity(em);
+        transaction.setCategory(category);
+        TransactionDTO transactionDTO = transactionMapper.toDto(transaction);
+        transactionDTO = transactionService.save(transactionDTO);
+        em.detach(transaction);
+        em.detach(category);
+
+        int databaseSizeBeforeUpdate = transactionRepository.findAll().size();
+
+        transactionDTO.setCategory(null);
+        restTransactionMockMvc
+            .perform(
+                put(ENTITY_API_URL_ID, transactionDTO.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(TestUtil.convertObjectToJsonBytes(transactionDTO))
+            )
+            .andExpect(status().isOk());
+
+        // Validate the Transaction in the database
+        List<Transaction> transactionList = transactionRepository.findAll();
+        assertThat(transactionList).hasSize(databaseSizeBeforeUpdate);
+        Transaction testTransaction = transactionList.get(transactionList.size() - 1);
+        assertThat(testTransaction.getCategory()).isNull();
     }
 }

@@ -9,14 +9,16 @@ import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
-import java.util.Objects;
-import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Service Implementation for managing {@link Transaction}.
@@ -128,6 +130,11 @@ public class TransactionServiceImpl implements TransactionService {
         Optional<Transaction> transaction = transactionRepository.findById(id);
         validateEntity(transaction);
         transactionRepository.deleteById(id);
+    }
+
+    @Override
+    public BigDecimal getTotalAmount() {
+        return transactionRepository.getTotalAmountByUser(SecurityUtils.getCurrentUserLogin().orElse(""));
     }
 
     private void validateEntity(Optional<Transaction> transaction) {

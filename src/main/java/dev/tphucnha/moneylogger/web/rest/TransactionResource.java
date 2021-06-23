@@ -6,13 +6,6 @@ import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.criteria.TransactionCriteria;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.web.rest.errors.BadRequestAlertException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import javax.validation.Valid;
-import javax.validation.constraints.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,6 +19,15 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tech.jhipster.web.util.HeaderUtil;
 import tech.jhipster.web.util.PaginationUtil;
 import tech.jhipster.web.util.ResponseUtil;
+
+import javax.validation.Valid;
+import javax.validation.constraints.NotNull;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
  * REST controller for managing {@link dev.tphucnha.moneylogger.domain.Transaction}.
@@ -185,6 +187,19 @@ public class TransactionResource {
         log.debug("REST request to count Transactions by criteria: {}", criteria);
         return ResponseEntity.ok().body(transactionQueryService.countByCriteria(criteria));
     }
+
+
+    /**
+     * {@code GET  /transactions/totalAmount} : sum amounts of all the transactions.
+     *
+     * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
+     */
+    @GetMapping("/transactions/totalAmount")
+    public ResponseEntity<BigDecimal> totalAmount() {
+        log.debug("REST request to total amount Transactions by criteria");
+        return ResponseEntity.ok().body(transactionService.getTotalAmount());
+    }
+
 
     /**
      * {@code GET  /transactions/:id} : get the "id" transaction.

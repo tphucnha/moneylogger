@@ -1,9 +1,9 @@
 package dev.tphucnha.moneylogger.service;
 
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
+
+import java.math.BigDecimal;
 import java.util.Optional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 /**
  * Service Interface for managing {@link dev.tphucnha.moneylogger.domain.Transaction}.
@@ -47,4 +47,10 @@ public interface TransactionService {
      * @param id the id of the entity.
      */
     void delete(Long id);
+
+    /**
+     * Get sum of amount of all user's transactions
+     * @return
+     */
+    BigDecimal getTotalAmount();
 }

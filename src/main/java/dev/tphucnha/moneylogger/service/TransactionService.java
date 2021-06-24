@@ -1,8 +1,8 @@
 package dev.tphucnha.moneylogger.service;
 
+import dev.tphucnha.moneylogger.service.dto.TotalAmountDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 
-import java.math.BigDecimal;
 import java.util.Optional;
 
 /**
@@ -50,7 +50,7 @@ public interface TransactionService {
 
     /**
      * Get sum of amount of all user's transactions
-     * @return
+     * @return total amount of user's transactions
      */
-    BigDecimal getTotalAmount();
+    TotalAmountDTO getTotalAmount();
 }

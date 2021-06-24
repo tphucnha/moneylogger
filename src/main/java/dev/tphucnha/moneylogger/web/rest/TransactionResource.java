@@ -4,6 +4,7 @@ import dev.tphucnha.moneylogger.repository.TransactionRepository;
 import dev.tphucnha.moneylogger.service.TransactionQueryService;
 import dev.tphucnha.moneylogger.service.TransactionService;
 import dev.tphucnha.moneylogger.service.criteria.TransactionCriteria;
+import dev.tphucnha.moneylogger.service.dto.TotalAmountDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.web.rest.errors.BadRequestAlertException;
 import org.slf4j.Logger;
@@ -22,7 +23,6 @@ import tech.jhipster.web.util.ResponseUtil;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -195,7 +195,7 @@ public class TransactionResource {
      * @return the {@link ResponseEntity} with status {@code 200 (OK)} and the count in body.
      */
     @GetMapping("/transactions/totalAmount")
-    public ResponseEntity<BigDecimal> totalAmount() {
+    public ResponseEntity<TotalAmountDTO> totalAmount() {
         log.debug("REST request to total amount Transactions by criteria");
         return ResponseEntity.ok().body(transactionService.getTotalAmount());
     }

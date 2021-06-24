@@ -6,6 +6,7 @@ import dev.tphucnha.moneylogger.repository.CategoryRepository;
 import dev.tphucnha.moneylogger.repository.TransactionRepository;
 import dev.tphucnha.moneylogger.security.SecurityUtils;
 import dev.tphucnha.moneylogger.service.TransactionService;
+import dev.tphucnha.moneylogger.service.dto.TotalAmountDTO;
 import dev.tphucnha.moneylogger.service.dto.TransactionDTO;
 import dev.tphucnha.moneylogger.service.mapper.CategoryMapper;
 import dev.tphucnha.moneylogger.service.mapper.TransactionMapper;
@@ -133,8 +134,9 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public BigDecimal getTotalAmount() {
-        return transactionRepository.getTotalAmountByUser(SecurityUtils.getCurrentUserLogin().orElse(""));
+    public TotalAmountDTO getTotalAmount() {
+        BigDecimal totalAmount = transactionRepository.getTotalAmountByUser(SecurityUtils.getCurrentUserLogin().orElse(""));
+        return new TotalAmountDTO(totalAmount);
     }
 
     private void validateEntity(Optional<Transaction> transaction) {

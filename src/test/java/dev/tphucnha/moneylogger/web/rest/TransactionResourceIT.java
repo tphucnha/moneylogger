@@ -29,7 +29,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static dev.tphucnha.moneylogger.web.rest.TestUtil.sameNumber;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.*;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.security.test.web.servlet.response.SecurityMockMvcResultMatchers.authenticated;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -1303,7 +1304,7 @@ class TransactionResourceIT {
             .perform(get(ENTITY_API_URL + TOTAL_AMOUNT_URI)
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
-            .andExpect(content().string(equalTo(DEFAULT_AMOUNT.add(UPDATED_AMOUNT))));
-        //TODO: still failed
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
+            .andExpect(jsonPath("$.value").value(sameNumber(DEFAULT_AMOUNT.add(UPDATED_AMOUNT))));
     }
 }

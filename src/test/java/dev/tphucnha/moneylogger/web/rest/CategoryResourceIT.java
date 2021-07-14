@@ -356,14 +356,6 @@ class CategoryResourceIT {
             )
             .andExpect(status().isOk());
 
-        // Then get the updated entity through api.
-        restCategoryMockMvc
-            .perform(get(ENTITY_API_URL_ID, categoryDTO.getId()))
-            .andExpect(status().isOk())
-            .andExpect(content().contentType(MediaType.APPLICATION_JSON_VALUE))
-            .andExpect(jsonPath("$.id").value(category.getId().intValue()))
-            .andExpect(jsonPath("$.name").value(UPDATED_NAME));
-
         // Validate the Category in the database
         List<Category> categoryList = categoryRepository.findAll();
         assertThat(categoryList).hasSize(databaseSizeBeforeUpdate);
